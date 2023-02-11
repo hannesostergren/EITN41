@@ -1,0 +1,38 @@
+# implement the Optimal Asymmetric Encryption Padding (OAEP) for RSA (see description below)
+# mgfSeed = 0123456789abcdef (hexadecimal) 
+
+# maskLen = 30 (decimal
+import hashlib
+
+# def I2OSP(x, xLen):
+#     x = []
+#     X = 1
+#     if(len(x) >= 256**xLen):
+#         print("integer too large")
+#         return ""
+#     for i in range(xLen, 0, -1):
+#         x.append(256**(i-1))
+#     for i in range(xLen):
+#         X *= x[i]
+#     return hex(X)
+
+def I2OSP(n, leng, order):
+    return n.to_bytes(leng, order)
+
+
+def MGF1(mgfSeed, maskLen):
+    mgfSeed = bytes.fromhex(mgfSeed)
+    if(maskLen > 2**32):
+        print("mask too long")
+        return ""
+    T = ""
+    for count in range((maskLen)-1):
+        C = I2OSP(count, 4, "big")
+        conc = mgfSeed + C
+        T += hashlib.sha1(conc).hexdigest()
+    return T[:maskLen*2]
+
+
+if __name__ == "__main__":
+    print(MGF1("0123456789abcdef", 30))
+    #18a65e36189833d99e55a68dedda1cce13a494c947817d25dc80d9b4586a

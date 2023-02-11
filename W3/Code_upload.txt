@@ -1,0 +1,170 @@
+-------------------------------------------------------M3P1.py----------------------------------------------------------
+import base64 
+
+# we run the 
+# openssl asn1parse -in secret_key.pem
+# And pastes the values given
+
+
+version = int("00", 16)
+public_exp = int("010001", 16)
+private_exp = int("30B5BD48046B78C052AD4F4C94EB4F3B5CD9021EB44DC92EE1D4A004A1FAC2A53A0A8FE0F00F296130CE1720FC95FFF88458C06FAB850AF5F42DFB38CB77B3421D52779ACAE522BB3FA53A27862823272C8F4DE3B0C8179E065C8C21C051C27CAEABFD1A88277005BE7132342A1AD276EEEE9B89F837C88951F770BEB2A20021", 16)
+p1 = int("DDDCFD3727A4144C002998AF1A8BD517D3097E5EA7C5FA72D18EF0DD16B529D4974B340FAE3AD5750DFC98650515C79F5A23171BCB800DD446ADB6659370F6BD", 16)
+p2 = int("CF10AEE4C7CB317FB5A28B16E8C778AB7C265D87146A06EEF6A7EE8AC87A3BB0789ED3776E48B7A1E6D7ECCE1766F96EC35E2ABFB8EB0644DFD93A88FD5C5DD9", 16)
+exp1 = int("B9F8DF0C979EF3208DD650551F246D782DFF3C3D6DD7074BAD9B6B0D78565D7D0561157FBB6537BE89FDDD647871BC46381147F2958F7E881CC2CA2CB4FDB0E5", 16)
+exp2 = int("0344561E11F0E8C5050E9D772D11089C5C0716EEACA9C796399A08AF73DE49D6CCF06491BBD1B5E3FE0A66181252739905C8149095D04F7702B920AD4CA20A71", 16)
+coeff = int("3327C2872FEC4716ABC9C0E34B5FEC17D40E375783C6D0AFBFFA2ED94C4255B404FFDC4CCC7B3B65AD1EFEA5F2A002F99C3D2CB515595145DF0BFCBDB92E205F",16)
+mod = p1*p2
+
+new_key = ""
+new_key += "asn1=SEQUENCE:RSA_new_key\n\n"
+new_key += "[RSA_new_key]\n"
+new_key += "version=INTEGER:" + str(version)+ "\n"
+new_key += "modulus=INTEGER:" + str(mod) + "\n"
+new_key += "publicExponent=INTEGER:" + str(public_exp) + "\n"
+new_key += "privateExponent=INTEGER:" + str(private_exp) + "\n"
+new_key += "prime1=INTEGER:" + str(p1) + "\n"
+new_key += "prime2=INTEGER:" + str(p2) + "\n"
+new_key += "exponent1=INTEGER:" + str(exp1) + "\n"
+new_key += "exponent2=INTEGER:" + str(exp2) + "\n"
+new_key += "coefficient=INTEGER:" + str(coeff) + "\n"
+print(new_key)
+
+text_file = open("new_key.txt", "w")
+
+text_file.write(new_key)
+
+text_file.close()
+
+-------------------------------------------------------M3P2.py----------------------------------------------------------
+
+from hashlib import sha1
+
+def jacobi (a, m):
+	j = 1
+	a %= m
+	while a:
+		t = 0
+		while not a & 1:
+			a = a >> 1
+			t += 1
+		if t & 1 and m % 8 in (3, 5):
+			j = -j
+		if (a % 4 == m % 4 == 3):
+			j = -j
+		a, m = m % a, a
+	return j if m == 1 else 0
+
+def decrypt(encrypted_data, r, mod):
+	decrypted_bits = [1 if jacobi(int(bit, 16) + 2 * r, mod) == 1 else 0 for bit in encrypted_data.splitlines()]
+	decrypted_bits = ''.join(str(b) for b in decrypted_bits)
+	return decrypted_bits
+
+def PKG(p, q, a):
+	mod = p * q
+
+	while jacobi(int.from_bytes(a, 'big'), mod) != 1:
+		a = sha1(a).digest()
+	print("a: ", a.hex())
+
+	r = pow(int.from_bytes(a, 'big'), (mod + 5 -(p + q)) // 8, mod)
+	print("r: ", hex(r))
+	return r, mod
+
+def program(id, p, q, encrypted_data):
+	p = int(p, 16)
+	q = int(q, 16)
+	id_bytes = id.encode('utf-8')
+	a = sha1(id_bytes).digest()
+	
+	r, mod = PKG(p, q, a)
+
+	decrypted_data = decrypt(encrypted_data, r, mod)
+	private_key = r
+	return private_key, decrypted_data
+
+if __name__ == "__main__":
+	res = program("faythe@crypto.sec", "9240633d434a8b71a013b5b00513323f", "f870cfcd47e6d5a0598fc1eb7e999d1b", """60bddfa36cdc174c4875b17bc4c6353ac3337369c3cdb464162f0514bf9754f8
+0d10af339c7a199b97839fed1618d59acd5e8262d35f12e3c3523b7e79af82b4
+873598c2e8beecc35ba986bc76163039a55211f5e3d2bc5e14bf5700e1ebff71
+157da3a6c5a27311c5ba3aee9900ba9cf38a403896bf44fbd94e949746b2e896
+5b0379f952784bbce6100805e46c9ea4e9e333b3be86b9efbe69c8fb73872af2
+45ad5a4f8dcb2f1d3f2557d89a0c5952ac4600870a096d034d10cfb08408039b
+65cd9c8eda1ec2e3001604b861dc9b69cafca09a34eef59d546c5743e2ce8adf
+0106ae2139260de452085455676eee88fde900bca69059d0dd231cc7ff53864c""")
+	print(int(res[1], 2))
+
+
+-------------------------------------------------------M3P1.py----------------------------------------------------------
+
+from pcapfile import savefile
+import random
+import ipaddress
+
+testcap = open('../cia.log.2.pcap', 'rb')
+capfile = savefile.load_savefile(testcap, layers=2, verbose=True)
+
+#print the packets
+#print ('timestamp\teth src\t\t\teth dst\t\t\tIP src\t\tIP dst')
+for pkt in capfile.packets:
+    timestamp = pkt.timestamp
+    # all data is ASCII encoded (byte arrays). If we want to compare with strings
+    # we need to decode the byte arrays into UTF8 coded strings
+    # eth_src = pkt.packet.src.decode('UTF8')
+    # eth_dst = pkt.packet.dst.decode('UTF8')
+    # ip_src = pkt.packet.payload.src.decode('UTF8')
+    # ip_dst = pkt.packet.payload.dst.decode('UTF8')
+    # print ('{}\t\t{}\t{}\t{}\t{}'.format(timestamp, eth_src, eth_dst, ip_src, ip_dst))
+
+def disclosure_attack(batches, num_partners):
+    union_set = batches.copy().pop(0)
+    disjoint_packs = [union_set]
+    for batch in batches:
+        if union_set.isdisjoint(batch):
+            disjoint_packs.append(batch)
+            union_set = union_set.union(batch)
+    assert(len(disjoint_packs) == num_partners)
+
+    return disjoint_packs
+
+def learning_phase(ANIP, MixIP, num_partners):
+    batches = list()
+    current_batch = set()
+    rec = False
+    add = False
+    for pkt in capfile.packets:
+        if add and not pkt.packet.payload.src.decode('utf-8') == MixIP:
+            batches.append(current_batch.copy())
+            current_batch.clear()
+            add = False
+            rec = False
+        if pkt.packet.payload.src.decode('utf-8') == ANIP:
+            rec = True
+        elif pkt.packet.payload.src.decode('utf-8') == MixIP and rec:
+            add = True
+            current_batch.add(pkt.packet.payload.dst.decode('utf-8'))
+    disjoint_packs = disclosure_attack(batches, num_partners)
+    return batches, disjoint_packs
+        
+
+def find_partners(batches, disjoint_packets):
+    for batch in batches:
+        for i, dis in enumerate(disjoint_packets):
+            no_others = all(map(lambda a: batch.isdisjoint(a) or a == dis, disjoint_packets))
+            if no_others and dis.intersection(batch):
+                disjoint_packets[i] = dis.intersection(batch)
+    
+        if all(map(lambda a: len(a) == 1, disjoint_packets)):
+            return disjoint_packets
+    return None
+
+
+def main(ANIP, MixIP, num_partners): 
+    batches, disjoint_sets = learning_phase(ANIP, MixIP, num_partners)
+    
+    partners = find_partners(batches, disjoint_sets)
+    print("partner_ip: ", *partners)
+    sum_partner_ip = sum([int(ipaddress.ip_address(partner.pop())) for partner in partners])
+    print("sum partner_ip", sum_partner_ip)
+
+main("245.221.13.37", "15.24.22.93", 9)
